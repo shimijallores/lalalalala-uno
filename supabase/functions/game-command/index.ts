@@ -132,23 +132,16 @@ Deno.serve(async (request) => {
         state.lastAction = action('uno-caught', me.display_name, 'missed the UNO call and drew two cards.')
       } else {
         if (state.currentPlayerId !== playerId) return fail('You can draw only on your turn.', 'wrong_player', 409)
-        if (state.turnPhase !== 'playing' && state.turnPhase !== 'drawn') return fail('You can draw only on your turn.', 'wrong_player', 409)
-        if (state.turnPhase === 'playing') {
-          const top = state.discardPile[state.discardPile.length - 1]
-          if (top && state.currentColor && hasPlayableCard(state.hands[playerId] ?? [], top, state.currentColor)) return fail('You already have a legal card. Play it instead of drawing.', 'illegal_move', 409)
-        }
-          if (!top || !state.currentColor) return fail('The table could not find the current discard. Try again.', 'invalid_table', 409)
-          const drawn = drawUntilPlayable(state.drawPile, state.discardPile, state.hands[playerId] ?? [], top, state.currentColor, () => crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296)
-          const stateWithCards = setHand({ ...state, drawPile: drawn.drawPile, discardPile: drawn.discardPile }, playerId, [...(state.hands[playerId] ?? []), ...drawn.cards])
-          if (drawn.playableCard && isPlayable(drawn.playableCard, top, state.currentColor, stateWithCards.hands[playerId] ?? [])) {
-            state = { ...stateWithCards, drawnCardId: drawn.playableCard.id, turnPhase: 'drawn', lastAction: action('card-drawn', me.display_name, `drew ${drawn.cards.length} card${drawn.cards.length === 1 ? '' : 's'} and found a playable card.`) }
-          } else {
-            state = advanceAfterAutomaticDraw(stateWithCards, me.slot - 1, players)
-            state.lastAction = drawn.cards.length > 0
-              ? action('turn-changed', me.display_name, `drew ${drawn.cards.length} cards and the turn advanced automatically.`)
-              : action('turn-changed', me.display_name, 'could not draw any cards. The turn advanced automatically.')
-          }
-        }
+        if (state.turnPhase !== 'playing') return fail('You can draw only on your turn.', 'wrong_player', 409)
+        const top = state.discardPile[state.discardPile.length - 1]
+        if (!top || !state.currentColor) return fail('The table could not find the current discard. Try again.', 'invalid_table', 409)
+        if (hasPlayableCard(state.hands[playerId] ?? [], top, state.currentColor)) return fail('You already have a legal card. Play it instead of drawing.', 'illegal_move', 409)
+        const drawn = drawUntilPlayable(state.drawPile, state.discardPile, state.hands[playerId] ?? [], top, state.currentColor, () => crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296)
+        const stateWithCards = setHand({ ...state, drawPile: drawn.drawPile, discardPile: drawn.discardPile }, playerId, [...(state.hands[playerId] ?? []), ...drawn.cards])
+        state = advanceAfterAutomaticDraw(stateWithCards, me.slot - 1, players)
+        state.lastAction = drawn.cards.length > 0
+          ? action('turn-changed', me.display_name, `drew ${drawn.cards.length} card${drawn.cards.length === 1 ? '' : 's'} and the turn advanced.`)
+          : action('turn-changed', me.display_name, 'could not draw any cards. The turn advanced.')
       }
     } else if (body.action === 'call_uno') {
       if (state.unoPendingPlayerId !== playerId || state.unoCalled === true) return fail('UNO is not waiting for your call right now.', 'invalid_uno', 409)

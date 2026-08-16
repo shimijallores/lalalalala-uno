@@ -241,13 +241,6 @@ export function legalActions(room: RoomRow, players: PlayerRow[], state: ServerS
   if (state.turnPhase === 'choose-color') return ['choose-color']
   const hand = state.hands[playerId] ?? []
   const top = state.discardPile[state.discardPile.length - 1]
-  if (state.turnPhase === 'drawn') {
-    const actions = ['draw-card']
-    if (top && state.currentColor && hasPlayableCard(hand, top, state.currentColor)) actions.push('play-card')
-    else actions.push('play-card')
-    if (resolveUnoState({ handCount: hand.length, called: state.unoCalled }) === 'pending') actions.push('call-uno')
-    return actions
-  }
   const actions = ['draw-card']
   if (top && state.currentColor && hasPlayableCard(hand, top, state.currentColor)) actions.push('play-card')
   else actions.push('play-card')
