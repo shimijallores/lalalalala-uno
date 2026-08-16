@@ -19,7 +19,7 @@ import {
   type PlayerRow,
   type ServerState,
 } from '../_shared/server.ts'
-import { drawUntilPlayable, hasPlayableCard, isPlayable, resolveUnoState, type Card } from '../../../shared/uno-engine.ts'
+import { drawUntilPlayable, hasPlayableCard, isPlayable, type Card } from '../../../shared/uno-engine.ts'
 
 interface CommandBody {
   action?: CommandAction
@@ -57,21 +57,10 @@ function afterSuccessfulCard(state: ServerState, playerId: string, players: Play
     if (opponent) {
       const drawn = randomDraw(next, pendingDrawCount)
       const withCards = setHand(drawn.state, opponent.player_id, [...(drawn.state.hands[opponent.player_id] ?? []), ...drawn.cards])
-      const uno = resolveUnoState({ handCount: (withCards.hands[playerId]?.length ?? 0), called: false })
-      if (uno === 'pending') return { ...withCards, turnPhase: 'uno-pending', unoPendingPlayerId: playerId, unoCalled: false, drawnCardId: null, pendingWildCardId: null, pendingDrawCount: 0 }
       return advanceAfterCard(withCards, card, players.findIndex((p) => p.player_id === playerId), players)
     }
   }
-  const uno = resolveUnoState({ handCount, called: false })
-  if (uno === 'pending') {
-    return { ...next, turnPhase: 'uno-pending', unoPendingPlayerId: playerId, unoCalled: false, drawnCardId: null, pendingWildCardId: null }
-  }
   return advanceAfterCard(next, card, players.findIndex((player) => player.player_id === playerId), players)
-}
-
-function penaltyForUncalledUno(state: ServerState, playerId: string): ServerState {
-  const drawn = randomDraw(state, 2)
-  return { ...setHand(drawn.state, playerId, [...(drawn.state.hands[playerId] ?? []), ...drawn.cards]), turnPhase: 'playing', unoPendingPlayerId: null, unoCalled: false, drawnCardId: null }
 }
 
 Deno.serve(async (request) => {
@@ -102,10 +91,6 @@ Deno.serve(async (request) => {
     } else if (room.status === 'waiting') {
       return fail('The host needs to start the round first.', 'not_started', 409)
     } else if (body.action === 'play_card') {
-      if (state.unoPendingPlayerId === playerId && !state.unoCalled) {
-        state = penaltyForUncalledUno(state, playerId)
-        state.lastAction = action('uno-caught', me.display_name, 'missed the UNO call and drew two cards.')
-      } else {
       if (state.currentPlayerId !== playerId) return fail('It is not your turn.', 'wrong_player', 409)
         const found = findCard(state, playerId, body.cardId)
         if (!found) return fail('That card is not in your hand.', 'card_not_owned', 409)
@@ -118,7 +103,6 @@ Deno.serve(async (request) => {
           state = afterSuccessfulCard(state, playerId, players, found.card, found.index)
           state.lastAction = state.turnPhase === 'finished' ? action('winner-declared', me.display_name, 'played their last card.') : action('card-played', me.display_name, `played ${found.card.label}.`)
         }
-      }
     } else if (body.action === 'choose_color') {
       if (state.currentPlayerId !== playerId || state.turnPhase !== 'choose-color' || !state.pendingWildCardId || !isValidColor(body.color)) return fail('Choose one of the four UNO colors for this Wild card.', 'invalid_color', 409)
       const wild = state.discardPile[state.discardPile.length - 1]
@@ -127,10 +111,6 @@ Deno.serve(async (request) => {
       state = afterSuccessfulCard(state, playerId, players, wild, -1)
       if (state.lastAction?.type !== 'card-drawn') state.lastAction = state.turnPhase === 'finished' ? action('winner-declared', me.display_name, 'played their last card.') : action('card-played', me.display_name, `played ${wild.label}.`)
     } else if (body.action === 'draw_card') {
-      if (state.unoPendingPlayerId === playerId && !state.unoCalled) {
-        state = penaltyForUncalledUno(state, playerId)
-        state.lastAction = action('uno-caught', me.display_name, 'missed the UNO call and drew two cards.')
-      } else {
         if (state.currentPlayerId !== playerId) return fail('You can draw only on your turn.', 'wrong_player', 409)
         if (state.turnPhase !== 'playing') return fail('You can draw only on your turn.', 'wrong_player', 409)
         const top = state.discardPile[state.discardPile.length - 1]
@@ -142,15 +122,6 @@ Deno.serve(async (request) => {
         state.lastAction = drawn.cards.length > 0
           ? action('turn-changed', me.display_name, `drew ${drawn.cards.length} card${drawn.cards.length === 1 ? '' : 's'} and the turn advanced.`)
           : action('turn-changed', me.display_name, 'could not draw any cards. The turn advanced.')
-      }
-    } else if (body.action === 'call_uno') {
-      if (state.unoPendingPlayerId !== playerId || state.unoCalled === true) return fail('UNO is not waiting for your call right now.', 'invalid_uno', 409)
-      state = { ...state, unoCalled: true, lastAction: action('uno-called', me.display_name, 'called UNO!') }
-    } else if (body.action === 'catch_uno') {
-      if (!state.unoPendingPlayerId || state.unoCalled || state.unoPendingPlayerId === playerId) return fail('There is no open UNO catch right now.', 'invalid_uno', 409)
-      const target = state.unoPendingPlayerId
-      const drawn = randomDraw(state, 2)
-      state = { ...setHand(drawn.state, target, [...(drawn.state.hands[target] ?? []), ...drawn.cards]), unoPendingPlayerId: null, unoCalled: false, turnPhase: 'playing', lastAction: action('uno-caught', me.display_name, `caught ${playerName(players, target)} before the call.`) }
     } else if (body.action === 'forfeit_game') {
       if (room.status !== 'active') return fail('There is no active round to forfeit.', 'wrong_phase', 409)
       const winner = opponentId(players, playerId)

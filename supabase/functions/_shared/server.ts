@@ -6,7 +6,6 @@ import {
   drawCards,
   hasPlayableCard,
   isPlayable,
-  resolveUnoState,
   shuffle,
   type Card,
   type UnoColor,
@@ -236,7 +235,6 @@ export function legalActions(room: RoomRow, players: PlayerRow[], state: ServerS
   if (!self) return []
   if (room.status === 'waiting') return self.is_host && players.length === 2 ? ['start-game'] : []
   if (room.status === 'finished') return room.rematch_requested_by === playerId ? [] : ['request-rematch']
-  if (state.unoPendingPlayerId && state.unoPendingPlayerId !== playerId && !state.unoCalled) return ['catch-uno']
   if (state.currentPlayerId !== playerId) return []
   if (state.turnPhase === 'choose-color') return ['choose-color']
   const hand = state.hands[playerId] ?? []
@@ -244,7 +242,6 @@ export function legalActions(room: RoomRow, players: PlayerRow[], state: ServerS
   const actions = ['draw-card']
   if (top && state.currentColor && hasPlayableCard(hand, top, state.currentColor)) actions.push('play-card')
   else actions.push('play-card')
-  if (resolveUnoState({ handCount: hand.length, called: state.unoCalled }) === 'pending') actions.push('call-uno')
   return actions
 }
 

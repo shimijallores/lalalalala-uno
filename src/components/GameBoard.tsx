@@ -14,7 +14,6 @@ import { Hand } from './Hand'
 import { PlayerAvatar, PlayerPanel } from './PlayerPanel'
 import { RulesPanel } from './RulesPanel'
 import { ReactionLayer } from './ReactionLayer'
-import { UnoCallControl } from './UnoCallControl'
 import { WinnerOverlay } from './WinnerOverlay'
 import { playSfx, unlockSfx } from '../audio/sfx'
 
@@ -27,7 +26,7 @@ export function GameBoard({ view, connection, pending, error, muted = false, onT
   onToggleMute?: () => void
   reactions?: EmojiReaction[]
   onEmoji?: (emoji: EmojiAsset) => void
-  onCommand: (action: 'play_card' | 'draw_card' | 'choose_color' | 'call_uno' | 'catch_uno' | 'request_rematch' | 'forfeit_game' | 'turn_timeout', values?: { cardId?: string; color?: UnoColor }) => void | Promise<boolean>
+  onCommand: (action: 'play_card' | 'draw_card' | 'choose_color' | 'request_rematch' | 'forfeit_game' | 'turn_timeout', values?: { cardId?: string; color?: UnoColor }) => void | Promise<boolean>
   onLeave: () => void
 }) {
   const [rulesOpen, setRulesOpen] = useState(false)
@@ -171,7 +170,6 @@ export function GameBoard({ view, connection, pending, error, muted = false, onT
           <div className="your-turn">{secondsRemaining !== null && <span className={`turn-timer ${timerUrgent ? 'urgent' : ''}`} aria-label={`${secondsRemaining} seconds remaining`}>{secondsRemaining}s</span>}<span className="hand-count"><strong>{local?.handCount ?? view.ownHand.length}</strong><span>cards</span></span></div>
           <Hand view={view} pendingCommand={pending} draggedCardId={draggedCard?.id} onPlay={playCard} onCardDragStart={beginCardDrag} onCardDragEnd={endCardDrag} onCardDrop={dropCardOnDiscard} />
           <div className="local-actions">
-            <UnoCallControl canCall={view.legalActions.includes('call-uno')} canCatch={view.legalActions.includes('catch-uno')} disabled={Boolean(pending) || connection !== 'connected'} onCall={() => onCommand('call_uno')} onCatch={() => onCommand('catch_uno')} />
             {error && <span className="action-hint" role="alert">{error}</span>}
           </div>
         </section>
