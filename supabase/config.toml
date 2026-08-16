@@ -1,0 +1,13 @@
+project_id = "uno-duel"
+
+[functions.create-room]
+verify_jwt = true
+
+[functions.join-room]
+verify_jwt = true
+
+[functions.get-game-view]
+verify_jwt = true
+
+[functions.game-command]
+verify_jwt = true
