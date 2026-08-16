@@ -3,7 +3,6 @@ import {
   advanceAfterCard,
   advanceAfterAutomaticDraw,
   advanceAfterTimeout,
-  advanceToPenalty,
   broadcast,
   fail,
   isValidColor,
@@ -46,18 +45,6 @@ function isPenaltyCard(card: Card): boolean {
   return card.kind === 'draw-two' || card.kind === 'wild-draw-four'
 }
 
-function autoResolvePenalty(state: ServerState, players: PlayerRow[]): ServerState {
-  if (state.turnPhase !== 'penalty' || !state.currentPlayerId || state.pendingDrawCount <= 0) return state
-  const hand = state.hands[state.currentPlayerId] ?? []
-  if (hand.some(isPenaltyCard)) return state
-  const currentIndex = players.findIndex((player) => player.player_id === state.currentPlayerId)
-  const drawn = randomDraw(state, state.pendingDrawCount)
-  const withCards = setHand(drawn.state, state.currentPlayerId, [...hand, ...drawn.cards])
-  const next = advanceAfterAutomaticDraw(withCards, currentIndex, players)
-  next.lastAction = action('card-drawn', playerName(players, state.currentPlayerId), `drew ${drawn.cards.length} penalty cards.`)
-  return next
-}
-
 function afterSuccessfulCard(state: ServerState, playerId: string, players: PlayerRow[], card: Card, index: number): ServerState {
   const nextDiscard = index < 0 ? state.discardPile : [...state.discardPile, card]
   let next = { ...setHand(state, playerId, (state.hands[playerId] ?? []).filter((_, cardIndex) => cardIndex !== index)), discardPile: nextDiscard }
@@ -65,9 +52,15 @@ function afterSuccessfulCard(state: ServerState, playerId: string, players: Play
   if (handCount === 0) return winnerState(next, playerId)
   if (isPenaltyCard(card)) {
     const pendingDrawCount = state.pendingDrawCount + (card.kind === 'draw-two' ? 2 : 4)
-    const uno = resolveUnoState({ handCount, called: false })
-    if (uno === 'pending') return { ...next, pendingDrawCount, turnPhase: 'uno-pending', unoPendingPlayerId: playerId, unoCalled: false, drawnCardId: null, pendingWildCardId: null }
-    return advanceToPenalty({ ...next, pendingDrawCount }, players.findIndex((player) => player.player_id === playerId), players)
+    const opponentIdx = (players.findIndex((p) => p.player_id === playerId) + 1) % players.length
+    const opponent = players[opponentIdx]
+    if (opponent) {
+      const drawn = randomDraw(next, pendingDrawCount)
+      const withCards = setHand(drawn.state, opponent.player_id, [...(drawn.state.hands[opponent.player_id] ?? []), ...drawn.cards])
+      const uno = resolveUnoState({ handCount: (withCards.hands[playerId]?.length ?? 0), called: false })
+      if (uno === 'pending') return { ...withCards, turnPhase: 'uno-pending', unoPendingPlayerId: playerId, unoCalled: false, drawnCardId: null, pendingWildCardId: null, pendingDrawCount: 0 }
+      return advanceAfterCard(withCards, card, players.findIndex((p) => p.player_id === playerId), players)
+    }
   }
   const uno = resolveUnoState({ handCount, called: false })
   if (uno === 'pending') {
@@ -97,14 +90,8 @@ Deno.serve(async (request) => {
     if (body.action === 'turn_timeout') {
       if (room.status !== 'active' || !state.currentPlayerId || !state.turnDeadlineAt || Date.parse(state.turnDeadlineAt) > Date.now()) return fail('The turn clock has not expired yet.', 'timer_not_expired', 409)
       const expiredPlayer = state.currentPlayerId
-      if (state.turnPhase === 'penalty' && state.pendingDrawCount > 0) {
-        const drawn = randomDraw(state, state.pendingDrawCount)
-        state = advanceAfterAutomaticDraw(setHand(drawn.state, expiredPlayer, [...(drawn.state.hands[expiredPlayer] ?? []), ...drawn.cards]), players.findIndex((player) => player.player_id === expiredPlayer), players)
-        state.lastAction = action('card-drawn', playerName(players, expiredPlayer), `ran out of time and drew ${drawn.cards.length} penalty cards.`)
-      } else {
-        state = advanceAfterTimeout(state, players.findIndex((player) => player.player_id === expiredPlayer), players)
-        state.lastAction = action('turn-changed', playerName(players, expiredPlayer), 'ran out of time. The turn moved on.')
-      }
+      state = advanceAfterTimeout(state, players.findIndex((player) => player.player_id === expiredPlayer), players)
+      state.lastAction = action('turn-changed', playerName(players, expiredPlayer), 'ran out of time. The turn moved on.')
     } else if (room.status === 'active' && state.turnDeadlineAt && Date.parse(state.turnDeadlineAt) <= Date.now()) {
       return fail('The turn clock expired. Waiting for the table to advance it.', 'turn_expired', 409)
     } else if (body.action === 'start_game') {
@@ -124,15 +111,13 @@ Deno.serve(async (request) => {
         if (!found) return fail('That card is not in your hand.', 'card_not_owned', 409)
         if (state.turnPhase === 'drawn' && state.drawnCardId !== found.card.id) return fail('After drawing, you may only play the card you drew.', 'illegal_move', 409)
         const top = state.discardPile[state.discardPile.length - 1]
-        if (state.turnPhase === 'penalty') {
-          if (!isPenaltyCard(found.card)) return fail('Only a Draw Two or Wild Draw Four can stack here.', 'illegal_move', 409)
-        } else if (!top || !state.currentColor || !isPlayable(found.card, top, state.currentColor, found.hand)) return fail('That card is not legal on the current discard.', 'illegal_move', 409)
+        if (!top || !state.currentColor || !isPlayable(found.card, top, state.currentColor, found.hand)) return fail('That card is not legal on the current discard.', 'illegal_move', 409)
         if (found.card.color === 'wild') {
           state = { ...setHand(state, playerId, found.hand.filter((_, index) => index !== found.index)), discardPile: [...state.discardPile, found.card], turnPhase: 'choose-color', pendingWildCardId: found.card.id, drawnCardId: null }
           state.lastAction = action('card-played', me.display_name, `played ${found.card.label}. Pick a color.`)
         } else {
-          state = autoResolvePenalty(afterSuccessfulCard(state, playerId, players, found.card, found.index), players)
-          if (state.lastAction?.type !== 'card-drawn') state.lastAction = state.turnPhase === 'finished' ? action('winner-declared', me.display_name, 'played their last card.') : action('card-played', me.display_name, `played ${found.card.label}.`)
+          state = afterSuccessfulCard(state, playerId, players, found.card, found.index)
+          state.lastAction = state.turnPhase === 'finished' ? action('winner-declared', me.display_name, 'played their last card.') : action('card-played', me.display_name, `played ${found.card.label}.`)
         }
       }
     } else if (body.action === 'choose_color') {
@@ -140,31 +125,27 @@ Deno.serve(async (request) => {
       const wild = state.discardPile[state.discardPile.length - 1]
       if (!wild || wild.id !== state.pendingWildCardId) return fail('That Wild card is no longer waiting for a color.', 'stale_command', 409)
       state = { ...state, currentColor: body.color, lastAction: action('color-chosen', me.display_name, `called ${body.color}.`), pendingWildCardId: null }
-      state = autoResolvePenalty(afterSuccessfulCard(state, playerId, players, wild, -1), players)
+      state = afterSuccessfulCard(state, playerId, players, wild, -1)
+      if (state.lastAction?.type !== 'card-drawn') state.lastAction = state.turnPhase === 'finished' ? action('winner-declared', me.display_name, 'played their last card.') : action('card-played', me.display_name, `played ${wild.label}.`)
     } else if (body.action === 'draw_card') {
       if (state.unoPendingPlayerId === playerId && !state.unoCalled) {
         state = penaltyForUncalledUno(state, playerId)
         state.lastAction = action('uno-caught', me.display_name, 'missed the UNO call and drew two cards.')
       } else {
         if (state.currentPlayerId !== playerId) return fail('You can draw only on your turn.', 'wrong_player', 409)
-        if (state.turnPhase === 'penalty') {
-          const penaltyCount = state.pendingDrawCount
-          const drawn = randomDraw(state, penaltyCount)
-          state = advanceAfterAutomaticDraw(setHand(drawn.state, playerId, [...(drawn.state.hands[playerId] ?? []), ...drawn.cards]), me.slot - 1, players)
-          state.lastAction = action('card-drawn', me.display_name, `drew ${drawn.cards.length} penalty cards.`)
-        } else {
-          if (state.turnPhase !== 'playing') return fail('You can draw only on your turn.', 'wrong_player', 409)
+        if (state.turnPhase !== 'playing') return fail('You can draw only on your turn.', 'wrong_player', 409)
           const top = state.discardPile[state.discardPile.length - 1]
           if (top && state.currentColor && hasPlayableCard(state.hands[playerId] ?? [], top, state.currentColor)) return fail('You already have a legal card. Play it instead of drawing.', 'illegal_move', 409)
           if (!top || !state.currentColor) return fail('The table could not find the current discard. Try again.', 'invalid_table', 409)
           const drawn = drawUntilPlayable(state.drawPile, state.discardPile, state.hands[playerId] ?? [], top, state.currentColor, () => crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296)
-          if (!drawn.cards.length) return fail('The table could not draw a playable card. Try again.', 'empty_deck', 409)
           const stateWithCards = setHand({ ...state, drawPile: drawn.drawPile, discardPile: drawn.discardPile }, playerId, [...(state.hands[playerId] ?? []), ...drawn.cards])
           if (drawn.playableCard) {
             state = { ...stateWithCards, drawnCardId: drawn.playableCard.id, turnPhase: 'drawn', lastAction: action('card-drawn', me.display_name, `drew ${drawn.cards.length} card${drawn.cards.length === 1 ? '' : 's'} and found a playable card.`) }
           } else {
             state = advanceAfterAutomaticDraw(stateWithCards, me.slot - 1, players)
-            state.lastAction = action('turn-changed', me.display_name, `drew ${drawn.cards.length} cards and the turn advanced automatically.`)
+            state.lastAction = drawn.cards.length > 0
+              ? action('turn-changed', me.display_name, `drew ${drawn.cards.length} cards and the turn advanced automatically.`)
+              : action('turn-changed', me.display_name, 'could not draw any cards. The turn advanced automatically.')
           }
         }
       }

@@ -239,7 +239,6 @@ export function legalActions(room: RoomRow, players: PlayerRow[], state: ServerS
   if (state.unoPendingPlayerId && state.unoPendingPlayerId !== playerId && !state.unoCalled) return ['catch-uno']
   if (state.currentPlayerId !== playerId) return []
   if (state.turnPhase === 'choose-color') return ['choose-color']
-  if (state.turnPhase === 'penalty') return ['play-card']
   if (state.turnPhase === 'drawn') return state.drawnCardId ? ['play-card'] : []
   const hand = state.hands[playerId] ?? []
   const top = state.discardPile[state.discardPile.length - 1]

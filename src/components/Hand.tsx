@@ -16,8 +16,6 @@ export function Hand({ view, pendingCommand, draggedCardId, onPlay, onCardDragSt
   const isMyTurn = view.currentPlayerId === view.selfPlayerId
   const playable = view.turnPhase === 'drawn'
     ? new Set(view.drawnCardId ? [view.drawnCardId] : [])
-    : view.turnPhase === 'penalty'
-    ? new Set(view.ownHand.filter((card) => card.kind === 'draw-two' || card.kind === 'wild-draw-four').map((card) => card.id))
     : view.currentColor && view.topDiscard ? legalCardIds(view.ownHand, view.topDiscard, view.currentColor) : new Set<string>()
 
   return (

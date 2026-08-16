@@ -2094,6 +2094,9 @@
 
   .local-zone .hand-wrap {
     order: 2;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
   }
 
   .local-zone .local-actions {
@@ -2117,6 +2120,7 @@
   }
 
   .hand-scroll {
+    overflow-x: visible;
     gap: 0.4rem;
     padding-bottom: 0.45rem;
   }
