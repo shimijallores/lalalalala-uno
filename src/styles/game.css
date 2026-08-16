@@ -1171,6 +1171,7 @@
   min-width: max-content;
   overflow-x: auto;
   padding: 0.75rem 0.25rem 0.65rem;
+  -webkit-overflow-scrolling: touch;
   scrollbar-color: var(--color-teal) var(--color-surface-deep);
   scrollbar-width: thin;
 }
@@ -1185,7 +1186,7 @@
   padding: 0;
   overflow: hidden;
   user-select: none;
-  touch-action: pan-y;
+  touch-action: manipulation;
   background: var(--color-surface-deep);
   box-shadow: 0 0.18rem 0 oklch(0.04 0.02 190 / 0.65);
   transition: transform 180ms var(--ease-out), filter 180ms ease, opacity 180ms ease, box-shadow 180ms ease;
