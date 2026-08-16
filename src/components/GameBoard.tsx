@@ -44,7 +44,7 @@ export function GameBoard({ view, connection, pending, error, muted = false, onT
   const opponent = view.players.find((player) => player.id !== view.selfPlayerId)
   const local = view.players.find((player) => player.id === view.selfPlayerId)
   const myTurn = view.currentPlayerId === view.selfPlayerId
-  const canDraw = myTurn && view.turnPhase === 'playing'
+  const canDraw = myTurn && (view.turnPhase === 'playing' || view.turnPhase === 'drawn')
   const lastAction = view.lastAction
   const opponentIsOffline = Boolean(opponent && !opponent.isOnline)
   const canForfeit = opponentOfflineSince !== null && Date.now() - opponentOfflineSince >= 30000

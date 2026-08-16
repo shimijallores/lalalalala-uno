@@ -239,15 +239,18 @@ export function legalActions(room: RoomRow, players: PlayerRow[], state: ServerS
   if (state.unoPendingPlayerId && state.unoPendingPlayerId !== playerId && !state.unoCalled) return ['catch-uno']
   if (state.currentPlayerId !== playerId) return []
   if (state.turnPhase === 'choose-color') return ['choose-color']
-  if (state.turnPhase === 'drawn') return state.drawnCardId ? ['play-card'] : []
   const hand = state.hands[playerId] ?? []
   const top = state.discardPile[state.discardPile.length - 1]
+  if (state.turnPhase === 'drawn') {
+    const actions = ['draw-card']
+    if (top && state.currentColor && hasPlayableCard(hand, top, state.currentColor)) actions.push('play-card')
+    else actions.push('play-card')
+    if (resolveUnoState({ handCount: hand.length, called: state.unoCalled }) === 'pending') actions.push('call-uno')
+    return actions
+  }
   const actions = ['draw-card']
   if (top && state.currentColor && hasPlayableCard(hand, top, state.currentColor)) actions.push('play-card')
-  else if (state.turnPhase === 'drawn' && state.drawnCardId && top && state.currentColor) {
-    const drawn = hand.find((card) => card.id === state.drawnCardId)
-    if (drawn && isPlayable(drawn, top, state.currentColor, hand)) actions.push('play-card')
-  } else actions.push('play-card')
+  else actions.push('play-card')
   if (resolveUnoState({ handCount: hand.length, called: state.unoCalled }) === 'pending') actions.push('call-uno')
   return actions
 }
