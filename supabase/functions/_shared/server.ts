@@ -224,6 +224,8 @@ export function makePublicView(room: RoomRow, players: PlayerRow[], state: Serve
     scores: state.scores,
     turnPhase: state.turnPhase,
     lastAction: state.lastAction,
+    unoPendingPlayerId: state.unoPendingPlayerId,
+    unoCalled: state.unoCalled,
     stateVersion: room.state_version,
     opponentDisconnectedAt: room.opponent_disconnected_at,
     rematchRequestedBy: room.rematch_requested_by,
@@ -235,11 +237,21 @@ export function legalActions(room: RoomRow, players: PlayerRow[], state: ServerS
   if (!self) return []
   if (room.status === 'waiting') return self.is_host && players.length === 2 ? ['start-game'] : []
   if (room.status === 'finished') return room.rematch_requested_by === playerId ? [] : ['request-rematch']
-  if (state.currentPlayerId !== playerId) return []
-  if (state.turnPhase === 'choose-color') return ['choose-color']
+  const actions: string[] = []
+  if (state.unoPendingPlayerId && !state.unoCalled) {
+    actions.push(state.unoPendingPlayerId === playerId ? 'call-uno' : 'catch-uno')
+  }
+  if (state.currentPlayerId !== playerId) return actions
+  if (state.turnPhase === 'choose-color') { actions.push('choose-color'); return actions }
+  if (state.turnPhase === 'penalty') {
+    actions.push('draw-card')
+    const hand = state.hands[playerId] ?? []
+    if (hand.some((card) => card.kind === 'draw-two' || card.kind === 'wild-draw-four')) actions.push('play-card')
+    return actions
+  }
   const hand = state.hands[playerId] ?? []
   const top = state.discardPile[state.discardPile.length - 1]
-  const actions = ['draw-card']
+  actions.push('draw-card')
   if (top && state.currentColor && hasPlayableCard(hand, top, state.currentColor)) actions.push('play-card')
   else actions.push('play-card')
   return actions
@@ -283,12 +295,12 @@ export function randomDraw(state: ServerState, count: number): { state: ServerSt
 export function advanceAfterCard(state: ServerState, card: Card, currentPlayerIndex: number, players: PlayerRow[]): ServerState {
   const effect = applyCardEffect(card, currentPlayerIndex, players.length)
   const nextPlayer = players[effect.nextPlayerIndex]?.player_id ?? null
-  return { ...state, currentPlayerId: nextPlayer, currentColor: card.color === 'wild' ? state.currentColor : card.color as UnoColor, turnPhase: 'playing', turnDeadlineAt: new Date(Date.now() + 30000).toISOString(), pendingDrawCount: 0, drawnCardId: null, pendingWildCardId: null, unoPendingPlayerId: null, unoCalled: false }
+  return { ...state, currentPlayerId: nextPlayer, currentColor: card.color === 'wild' ? state.currentColor : card.color as UnoColor, turnPhase: 'playing', turnDeadlineAt: new Date(Date.now() + 30000).toISOString(), pendingDrawCount: 0, drawnCardId: null, pendingWildCardId: null }
 }
 
 export function advanceToPenalty(state: ServerState, currentPlayerIndex: number, players: PlayerRow[]): ServerState {
   const nextPlayer = players[(currentPlayerIndex + 1) % players.length]?.player_id ?? null
-  return { ...state, currentPlayerId: nextPlayer, turnPhase: 'penalty', turnDeadlineAt: new Date(Date.now() + 30000).toISOString(), drawnCardId: null, pendingWildCardId: null, unoPendingPlayerId: null, unoCalled: false }
+  return { ...state, currentPlayerId: nextPlayer, turnPhase: 'penalty', turnDeadlineAt: new Date(Date.now() + 30000).toISOString(), drawnCardId: null, pendingWildCardId: null }
 }
 
 export function advanceAfterAutomaticDraw(state: ServerState, currentPlayerIndex: number, players: PlayerRow[]): ServerState {

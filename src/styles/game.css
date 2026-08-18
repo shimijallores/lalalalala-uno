@@ -1251,25 +1251,71 @@
 }
 
 .uno-call-button {
-  min-height: 3.2rem;
-  padding-inline: 1.25rem;
+  min-height: 4.4rem;
+  padding-inline: 2rem;
   border: 3px solid var(--color-ink);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   color: white;
   background: var(--color-pink);
-  box-shadow: 0 0.25rem 0 var(--color-pink-dark);
+  box-shadow: 0 0.35rem 0 var(--color-pink-dark), 0 0 0 5px oklch(1 0 0 / 0.9);
   font-family: var(--font-display);
-  font-size: 1.3rem;
-  letter-spacing: 0.05em;
+  font-size: 2rem;
+  letter-spacing: 0.08em;
   transition: transform 160ms var(--ease-out), background-color 160ms ease;
 }
 
 .uno-call-button:hover:not(:disabled) {
   background: oklch(0.7 0.2 350);
-  transform: translateY(-3px) rotate(-1deg);
+  transform: translateY(-4px) rotate(-1deg) scale(1.04);
 }
 
 .uno-call-button:active:not(:disabled) {
+  transform: translateY(2px) scale(0.97);
+}
+
+.uno-catch-button {
+  min-height: 4.4rem;
+  padding-inline: 2rem;
+  border: 3px solid var(--color-ink);
+  border-radius: var(--radius-lg);
+  color: white;
+  background: var(--color-red);
+  box-shadow: 0 0.35rem 0 oklch(0.38 0.17 25), 0 0 0 5px oklch(1 0 0 / 0.9);
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  letter-spacing: 0.05em;
+  transition: transform 160ms var(--ease-out), background-color 160ms ease;
+}
+
+.uno-catch-button:hover:not(:disabled) {
+  background: oklch(0.62 0.2 28);
+  transform: translateY(-4px) rotate(1deg) scale(1.04);
+}
+
+.uno-catch-button:active:not(:disabled) {
+  transform: translateY(2px) scale(0.97);
+}
+
+.button-pass {
+  min-height: 3.2rem;
+  padding-inline: 1.25rem;
+  border: 2px solid var(--color-ink);
+  border-radius: var(--radius-md);
+  color: var(--color-ink);
+  background: var(--color-surface-deep);
+  box-shadow: 0 0.25rem 0 var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  letter-spacing: 0.05em;
+  transition: transform 160ms var(--ease-out), box-shadow 160ms ease;
+}
+
+.button-pass:hover:not(:disabled) {
+  transform: translateY(-3px);
+}
+
+.button-pass:active:not(:disabled) {
+  box-shadow: 0 0 0 var(--color-ink);
   transform: translateY(2px);
 }
 

@@ -14,7 +14,9 @@ interface HandProps {
 
 export function Hand({ view, pendingCommand, draggedCardId, onPlay, onCardDragStart, onCardDragEnd, onCardDrop }: HandProps) {
   const isMyTurn = view.currentPlayerId === view.selfPlayerId
-  const playable = view.currentColor && view.topDiscard ? legalCardIds(view.ownHand, view.topDiscard, view.currentColor) : new Set<string>()
+  const playable = view.turnPhase === 'penalty'
+    ? new Set(view.ownHand.filter((card) => card.kind === 'draw-two' || card.kind === 'wild-draw-four').map((card) => card.id))
+    : view.currentColor && view.topDiscard ? legalCardIds(view.ownHand, view.topDiscard, view.currentColor) : new Set<string>()
 
   return (
     <div className="hand-wrap" aria-label={`Your hand, ${view.ownHand.length} cards`}>

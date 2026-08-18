@@ -3,7 +3,7 @@ import type { Card, UnoColor } from '../../shared/uno-engine'
 export type { Card, CardColor, CardKind, UnoColor } from '../../shared/uno-engine'
 
 export type RoomStatus = 'waiting' | 'active' | 'finished'
-export type TurnPhase = 'waiting' | 'playing' | 'drawn' | 'choose-color' | 'finished'
+export type TurnPhase = 'waiting' | 'playing' | 'drawn' | 'choose-color' | 'uno-pending' | 'penalty' | 'finished'
 export type ConnectionState = 'connecting' | 'connected' | 'reconnecting' | 'offline' | 'configuration-error'
 
 export interface PublicPlayer {
@@ -37,6 +37,8 @@ export interface PublicGameView {
   scores: Record<string, number>
   turnPhase: TurnPhase
   lastAction: LastAction | null
+  unoPendingPlayerId: string | null
+  unoCalled: boolean
   stateVersion: number
   opponentDisconnectedAt: string | null
   rematchRequestedBy: string | null
@@ -70,6 +72,8 @@ export type CommandName =
   | 'draw_card'
   | 'turn_timeout'
   | 'choose_color'
+  | 'call_uno'
+  | 'catch_uno'
   | 'leave_room'
   | 'forfeit_game'
   | 'request_rematch'

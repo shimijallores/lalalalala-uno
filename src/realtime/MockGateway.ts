@@ -98,6 +98,8 @@ export class MockGateway implements RealtimeGateway {
       scores: Object.fromEntries(room.players.map((player) => [player.id, player.score])),
       turnPhase: room.status === 'waiting' ? 'waiting' : room.status === 'finished' ? 'finished' : 'playing',
       lastAction: null,
+      unoPendingPlayerId: null,
+      unoCalled: false,
       stateVersion: room.stateVersion,
       opponentDisconnectedAt: null,
       rematchRequestedBy: null,

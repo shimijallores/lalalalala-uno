@@ -26,6 +26,8 @@ const view: PrivatePlayerView = {
   scores: { me: 0, them: 0 },
   turnPhase: 'playing',
   lastAction: null,
+  unoPendingPlayerId: null,
+  unoCalled: false,
   stateVersion: 12,
   opponentDisconnectedAt: null,
   rematchRequestedBy: null,

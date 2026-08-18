@@ -8,10 +8,10 @@ export function UnoCallControl({ canCall, canCatch, disabled, onCall, onCatch }:
   onCatch: () => void
 }) {
   if (canCatch) {
-    return <button type="button" className="button button-pink" disabled={disabled} onClick={onCatch}><ShieldAlert size={16} aria-hidden="true" /> Catch UNO!</button>
+    return <button type="button" className="uno-catch-button" disabled={disabled} onClick={onCatch}><ShieldAlert size={20} aria-hidden="true" /> Catch UNO!</button>
   }
   if (canCall) {
-    return <button type="button" className="uno-call-button" disabled={disabled} onClick={onCall}><Megaphone size={17} aria-hidden="true" /> Call UNO!</button>
+    return <button type="button" className="uno-call-button" disabled={disabled} onClick={onCall}><Megaphone size={20} aria-hidden="true" /> UNO!</button>
   }
   return null
 }

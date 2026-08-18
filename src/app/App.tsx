@@ -38,6 +38,7 @@ export function App({ gateway: injectedGateway }: AppProps) {
   const [leaving, setLeaving] = useState(false)
   const reactionTimers = useRef(new Map<string, number>())
   const subscriptionRef = useRef<(() => Promise<void>) | null>(null)
+  const leavingRef = useRef(false)
 
   const displayReaction = (reaction: EmojiReaction) => {
     setReactions((current) => [...current.filter((entry) => entry.id !== reaction.id), reaction])
@@ -102,7 +103,7 @@ export function App({ gateway: injectedGateway }: AppProps) {
     if (subscriptionRef.current) await subscriptionRef.current()
     subscriptionRef.current = await gateway.subscribe(nextView.roomId, playerId, {
       onEvent: () => undefined,
-      onView: (view) => update({ type: 'view-received', view }),
+      onView: (view) => { if (!leavingRef.current) update({ type: 'view-received', view }) },
       onConnection: (connection) => update({ type: 'connection-changed', connection }),
       onReaction: displayReaction,
     })
@@ -181,6 +182,7 @@ export function App({ gateway: injectedGateway }: AppProps) {
   }
 
   const performLeave = async () => {
+    leavingRef.current = true
     setLeaving(true)
     const currentView = clientState.view
     try {
@@ -202,6 +204,7 @@ export function App({ gateway: injectedGateway }: AppProps) {
       update({ type: 'connection-changed', connection: gateway.isConfigured ? 'connected' : 'configuration-error' })
       if (typeof window !== 'undefined') window.history.replaceState({}, '', window.location.pathname)
     } finally {
+      leavingRef.current = false
       setLeaving(false)
       setLeaveConfirmOpen(false)
     }
