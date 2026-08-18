@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { FlagTriangleRight } from 'lucide-react'
+import { FlagTriangleRight, SkipForward } from 'lucide-react'
 import { EMOJI_ASSETS, type EmojiAsset } from '../game/emojis'
 import type { Card, ConnectionState, EmojiReaction, PrivatePlayerView, UnoColor } from '../game/types'
 import { ConnectionStatus } from './ConnectionStatus'
@@ -167,18 +167,17 @@ export function GameBoard({ view, connection, pending, error, muted = false, onT
         </section>
 
         <section className="local-zone" aria-label="Your side of the table">
-          {local && <div className="local-player-stack"><div className="local-player-badge"><PlayerAvatar name={local.displayName} pink /><div><strong>{local.displayName}</strong><span>Player 1</span></div></div><div className="local-player-controls"><EmojiPicker emojis={EMOJI_ASSETS} disabled={connection !== 'connected'} onSelect={onEmoji} />{canForfeit && <button type="button" className="button button-forfeit header-icon-button" aria-label="Forfeit game" disabled={Boolean(pending) || connection !== 'connected'} onClick={() => onCommand('forfeit_game')}><FlagTriangleRight size={15} aria-hidden="true" /></button>}</div></div>}
+          {local && <div className="local-player-stack"><div className="local-player-badge"><PlayerAvatar name={local.displayName} pink /><div><strong>{local.displayName}</strong><span>Player 1</span></div></div><div className="local-player-controls"><EmojiPicker emojis={EMOJI_ASSETS} disabled={connection !== 'connected'} onSelect={onEmoji} />{canDraw && <button type="button" className="button button-quiet header-icon-button" aria-label="Pass turn" disabled={Boolean(pending) || connection !== 'connected'} onClick={() => { unlockSfx(); onCommand('draw_card') }}><SkipForward size={16} aria-hidden="true" /></button>}{canForfeit && <button type="button" className="button button-forfeit header-icon-button" aria-label="Forfeit game" disabled={Boolean(pending) || connection !== 'connected'} onClick={() => onCommand('forfeit_game')}><FlagTriangleRight size={15} aria-hidden="true" /></button>}</div></div>}
           <div className="your-turn">{secondsRemaining !== null && <span className={`turn-timer ${timerUrgent ? 'urgent' : ''}`} aria-label={`${secondsRemaining} seconds remaining`}>{secondsRemaining}s</span>}<span className="hand-count"><strong>{local?.handCount ?? view.ownHand.length}</strong><span>cards</span></span></div>
           <Hand view={view} pendingCommand={pending} draggedCardId={draggedCard?.id} onPlay={playCard} onCardDragStart={beginCardDrag} onCardDragEnd={endCardDrag} onCardDrop={dropCardOnDiscard} />
           <div className="local-actions">
-            <UnoCallControl canCall={view.legalActions.includes('call-uno')} canCatch={view.legalActions.includes('catch-uno')} disabled={Boolean(pending) || connection !== 'connected'} onCall={() => onCommand('call_uno')} onCatch={() => onCommand('catch_uno')} />
-            {canDraw && <button type="button" className="button button-pass" disabled={Boolean(pending) || connection !== 'connected'} onClick={() => { unlockSfx(); onCommand('draw_card') }}>Pass</button>}
             {error && <span className="action-hint" role="alert">{error}</span>}
           </div>
         </section>
         <ReactionLayer reactions={reactions} selfPlayerId={view.selfPlayerId} />
       </section>
       {rulesOpen && <RulesPanel open={rulesOpen} onClose={() => setRulesOpen(false)} />}
+      <UnoCallControl canCall={view.legalActions.includes('call-uno')} canCatch={view.legalActions.includes('catch-uno')} disabled={Boolean(pending) || connection !== 'connected'} onCall={() => onCommand('call_uno')} onCatch={() => onCommand('catch_uno')} />
       {wildCard && <ColorPicker error={error} disabled={Boolean(pending)} onChoose={chooseColor} />}
       {cardFlight && <CardFlight flight={cardFlight} />}
       {dealPhase && <DealSequence phase={dealPhase} onComplete={() => setDealPhase(null)} />}

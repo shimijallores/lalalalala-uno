@@ -46,6 +46,18 @@ function isPenaltyCard(card: Card): boolean {
   return card.kind === 'draw-two' || card.kind === 'wild-draw-four'
 }
 
+function autoResolveIfNoStack(state: ServerState, players: PlayerRow[]): ServerState {
+  if (state.turnPhase !== 'penalty' || !state.currentPlayerId || state.pendingDrawCount <= 0) return state
+  const hand = state.hands[state.currentPlayerId] ?? []
+  if (hand.some(isPenaltyCard)) return state
+  const currentIndex = players.findIndex((player) => player.player_id === state.currentPlayerId)
+  const drawn = randomDraw(state, state.pendingDrawCount)
+  const withCards = setHand(drawn.state, state.currentPlayerId, [...hand, ...drawn.cards])
+  const next = advanceAfterAutomaticDraw(withCards, currentIndex, players)
+  next.lastAction = action('card-drawn', playerName(players, state.currentPlayerId), `drew ${drawn.cards.length} penalty card${drawn.cards.length === 1 ? '' : 's'}.`)
+  return next
+}
+
 function afterSuccessfulCard(state: ServerState, playerId: string, players: PlayerRow[], card: Card, index: number): ServerState {
   const nextDiscard = index < 0 ? state.discardPile : [...state.discardPile, card]
   let next = { ...setHand(state, playerId, (state.hands[playerId] ?? []).filter((_, cardIndex) => cardIndex !== index)), discardPile: nextDiscard }
@@ -54,7 +66,8 @@ function afterSuccessfulCard(state: ServerState, playerId: string, players: Play
   const withUno = handCount === 1 ? { ...next, unoPendingPlayerId: playerId, unoCalled: false } : next
   if (isPenaltyCard(card)) {
     const pendingDrawCount = state.pendingDrawCount + (card.kind === 'draw-two' ? 2 : 4)
-    return advanceToPenalty({ ...withUno, pendingDrawCount }, players.findIndex((p) => p.player_id === playerId), players)
+    const penalty = advanceToPenalty({ ...withUno, pendingDrawCount }, players.findIndex((p) => p.player_id === playerId), players)
+    return autoResolveIfNoStack(penalty, players)
   }
   return advanceAfterCard(withUno, card, players.findIndex((player) => player.player_id === playerId), players)
 }
@@ -79,6 +92,12 @@ Deno.serve(async (request) => {
         const drawn = randomDraw(state, state.pendingDrawCount)
         state = advanceAfterAutomaticDraw(setHand(drawn.state, expiredPlayer, [...(drawn.state.hands[expiredPlayer] ?? []), ...drawn.cards]), players.findIndex((player) => player.player_id === expiredPlayer), players)
         state.lastAction = action('card-drawn', playerName(players, expiredPlayer), `ran out of time and drew ${drawn.cards.length} penalty cards.`)
+      } else if (state.turnPhase === 'playing') {
+        const drawn = randomDraw(state, 1)
+        let withCards = setHand(drawn.state, expiredPlayer, [...(drawn.state.hands[expiredPlayer] ?? []), ...drawn.cards])
+        if (state.unoPendingPlayerId === expiredPlayer) withCards = { ...withCards, unoPendingPlayerId: null, unoCalled: false }
+        state = advanceAfterAutomaticDraw(withCards, players.findIndex((player) => player.player_id === expiredPlayer), players)
+        state.lastAction = action('card-drawn', playerName(players, expiredPlayer), 'ran out of time and drew one card. The turn moved on.')
       } else {
         state = advanceAfterTimeout(state, players.findIndex((player) => player.player_id === expiredPlayer), players)
         state.lastAction = action('turn-changed', playerName(players, expiredPlayer), 'ran out of time. The turn moved on.')
@@ -105,7 +124,7 @@ Deno.serve(async (request) => {
           state.lastAction = action('card-played', me.display_name, `played ${found.card.label}. Pick a color.`)
         } else {
           state = afterSuccessfulCard(state, playerId, players, found.card, found.index)
-          state.lastAction = state.turnPhase === 'finished' ? action('winner-declared', me.display_name, 'played their last card.') : action('card-played', me.display_name, `played ${found.card.label}.`)
+          if (state.lastAction?.type !== 'card-drawn') state.lastAction = state.turnPhase === 'finished' ? action('winner-declared', me.display_name, 'played their last card.') : action('card-played', me.display_name, `played ${found.card.label}.`)
         }
     } else if (body.action === 'choose_color') {
       if (state.currentPlayerId !== playerId || state.turnPhase !== 'choose-color' || !state.pendingWildCardId || !isValidColor(body.color)) return fail('Choose one of the four UNO colors for this Wild card.', 'invalid_color', 409)
