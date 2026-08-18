@@ -1116,7 +1116,7 @@
   color: var(--color-ink);
   background: oklch(0.08 0.025 190 / 0.94);
   box-shadow: 0 0.35rem 0 var(--color-pink);
-  transform: translate(calc(-50% - 3rem), -50%);
+  transform: translate(-50%, -50%);
 }
 
 .deal-deck {
